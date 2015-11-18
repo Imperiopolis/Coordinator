@@ -24,127 +24,219 @@ THE SOFTWARE.
 
 import Foundation
 
+private enum CoordinatorTransitionStyle {
+    case Forwards
+    case Last
+    case BackwardsSearch
+}
+
 public class CoordinatorReference<StateType: Equatable> {
-
+    
     public private(set) var currentState: StateType
-    public private(set) var previousState: StateType?
-
+    private var _previousStates = [StateType]()
+    
+    public var previousState: StateType? {
+        return _previousStates.last
+    }
+    
+    public func previousStates() -> [StateType] {
+        return _previousStates
+    }
+    
     private init(initialState: StateType) {
         currentState = initialState
     }
-
+    
     public func canTransitionToState(newState: StateType) -> Bool {
         fatalError("implement")
     }
-
+    
     public func transitionToState(newState: StateType) {
         fatalError("implement")
     }
-
+    
+    public func transitionBackToState(newState: StateType) {
+        fatalError("implement")
+    }
+    
     public func canTransitionBack() -> Bool {
         fatalError("implement")
     }
-
+    
     public func transitionBack() {
         fatalError("implement")
     }
+    
+    public func unload() {
+        fatalError("implement")
+    }
+    
 }
 
 public protocol CoordinatorManager: class {
-
+    
     typealias StateType: Equatable
-
+    
     weak var coordinator: CoordinatorReference<StateType>! { get set }
-
+    
     /// The initial state of the CoordinatorManager. The CoordinatorManager should not require any effort to reach this state.
     var initialState: StateType { get }
-
+    
     /**
-    Determine if the given state transition is valid.
-
-    :param: fromState The state to transition from.
-    :param: toState   The state to transition to.
-
-    :returns: true if the state transition is valid; otherwise, false.
-    */
-    func canTransition(#fromState: StateType, toState: StateType) -> Bool
-
+     Determine if the given state transition is valid.
+     
+     - parameter fromState: The state to transition from.
+     - parameter toState:   The state to transition to.
+     
+     - returns: true if the state transition is valid; otherwise, false.
+     */
+    func canTransition(fromState fromState: StateType, toState: StateType) -> Bool
+    
     /**
-    Perform any logic necessary to transition between the given states.
+     Perform any logic necessary to transition between the given states.
+     
+     - parameter fromState: The current to transition from.
+     - parameter toState:   The new state to transition to.
+     */
+    func transition(fromState fromState: StateType, toState: StateType, forwards: Bool)
+    
+}
 
-    :param: fromState The current to transition from.
-    :param: toState   The new state to transition to.
-    */
-    func transition(#fromState: StateType, toState: StateType)
+public protocol CoordinatorImplicitTransitionReversalDelegate: class {
+    
+    /// If all state transitions are of the form (A <-> B), and never (A -> B) return true in this method.
+    var allowImplicitTransitionReversals: Bool { get }
+    
+}
 
+public protocol CoordinatorManagerBackwards: class {
+    
+    typealias StateType: Equatable
+    
+    func transition(fromState fromState: StateType, toState: StateType, forwards: Bool)
+    
 }
 
 final public class Coordinator<StateType: Equatable, CM: CoordinatorManager where CM.StateType == StateType>: CoordinatorReference<CM.StateType> {
-
-    private let coordinatorManager: CM
-
+    
+    private var coordinatorManager: CM!
+    
     /**
-    Initialize a Coordinator with the given CoordinatorManager. After being initialized, the CoordinatorManager should not be interacted with directly.
-
-    :param: cm The CoordinatorManager.
-
-    :returns: An initialized Coordinator.
-    */
+     Initialize a Coordinator with the given CoordinatorManager. After being initialized, the CoordinatorManager should not be interacted with directly.
+     
+     - parameter cm: The CoordinatorManager.
+     
+     - returns: An initialized Coordinator.
+     */
     public init(coordinatorManager cm: CM) {
         coordinatorManager = cm
         super.init(initialState: cm.initialState)
+        coordinatorManager.coordinator = self
     }
-
+    
     /**
-    Determine if the Coordinator can transition from its current state to a new state.
-
-    :param: newState The new state you'd like to transition to.
-
-    :returns: true if the Coordinator can transition from its current state to the new state; otherwise, false.
-    */
+     Determine if the Coordinator can transition from its current state to a new state.
+     
+     - parameter newState: The new state you'd like to transition to.
+     
+     - returns: true if the Coordinator can transition from its current state to the new state; otherwise, false.
+     */
     public override func canTransitionToState(newState: StateType) -> Bool {
-        return coordinatorManager.canTransition(fromState: currentState, toState: newState)
-    }
-
-    /**
-    Transition from the current state to the new state. A fatalError will occur if you attempt to transition to an invalid state.
-
-    :param: newState The new state to transition to.
-    */
-    public override func transitionToState(newState: StateType) {
-        if currentState != newState {
-            if canTransitionToState(newState) {
-                previousState = currentState
-                coordinatorManager.transition(fromState: currentState, toState: newState)
-                currentState = newState
-            } else {
-                fatalError("Illegal state transition: \(currentState) -> \(newState)")
+        if let previousState = _previousStates.last {
+            if newState == previousState {
+                if let cm = coordinatorManager as? CoordinatorImplicitTransitionReversalDelegate where cm.allowImplicitTransitionReversals {
+                    return true
+                }
             }
         }
+        
+        return coordinatorManager.canTransition(fromState: currentState, toState: newState)
     }
-
+    
     /**
-    Determine if the Coordinator can transition from the current state to its previous state.
-
-    :returns: true if a valid previous state exists and can be transition to; otherwise, false.
-    */
+     Transition from the current state to the new state. A fatalError will occur if you attempt to transition to an invalid state.
+     
+     - parameter newState: The new state to transition to.
+     */
+    public override func transitionToState(newState: StateType) {
+        transitionToState(newState, transitionStyle: .Forwards)
+    }
+    
+    public override func transitionBackToState(newState: StateType) {
+        transitionToState(newState, transitionStyle: .BackwardsSearch)
+    }
+    
+    /**
+     Determine if the Coordinator can transition from the current state to its previous state.
+     
+     - returns: true if a valid previous state exists and can be transition to; otherwise, false.
+     */
     public override func canTransitionBack() -> Bool {
-        if let previousState = previousState {
+        if let previousState = _previousStates.last {
             return canTransitionToState(previousState)
         } else {
             return false
         }
     }
-
+    
     /**
-    Transition from the current state to the previous state. A fatalError will occur if you attempt to transition to an invalid state.
-    */
+     Transition from the current state to the previous state. A fatalError will occur if you attempt to transition to an invalid state.
+     */
     public override func transitionBack() {
-        if let previousState = previousState {
-            transitionToState(previousState)
+        if let previousState = _previousStates.last {
+            transitionToState(previousState, transitionStyle: .Last)
         } else {
             fatalError("Illegal state transition, there is no previous state")
         }
     }
-
+    
+    /**
+     Clear the state stack of previous states.
+     */
+    public func clearStateStack() {
+        _previousStates.removeAll(keepCapacity: false)
+    }
+    
+    public override func unload() {
+        coordinatorManager = nil
+    }
+    
+    private func transitionToState(newState: StateType, transitionStyle: CoordinatorTransitionStyle) {
+        if transitionStyle == .BackwardsSearch {
+            if !_previousStates.contains(newState) {
+                fatalError("Illegal state transition: There is no previous state \(newState)")
+            }
+        }
+        
+        if currentState != newState {
+            if canTransitionToState(newState) {
+                let forwards: Bool
+                
+                switch transitionStyle {
+                case .Forwards:
+                    forwards = true
+                    _previousStates.append(currentState)
+                case .Last:
+                    forwards = false
+                    _previousStates.removeLast()
+                case .BackwardsSearch:
+                    forwards = false
+                    
+                    for state in _previousStates.reverse() {
+                        _previousStates.removeLast()
+                        
+                        if state == newState {
+                            break
+                        }
+                    }
+                }
+                
+                let cState = currentState
+                currentState = newState
+                coordinatorManager.transition(fromState: cState, toState: newState, forwards: forwards)
+            } else {
+                fatalError("Illegal state transition: \(currentState) -> \(newState)")
+            }
+        }
+    }
 }
