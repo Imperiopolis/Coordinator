@@ -1,6 +1,6 @@
 {
   "name": "Coordinator",
-  "version": "0.1",
+  "version": "0.2",
   "license": { "type": "MIT", "file": "LICENSE" },
   "summary": "A generic Swift library for coordinating state transitions.",
   "homepage": "https://github.com/noremac/Coordinator",
@@ -9,7 +9,7 @@
     },
   "source": {
       "git": "https://github.com/noremac/Coordinator.git",
-      "tag": "0.1"
+      "tag": "0.2"
     },
   "requires_arc": true,
   "platforms": {
