@@ -27,9 +27,9 @@ import XCTest
 import Coordinator
 
 enum State: Equatable {
-    case Unloaded
-    case First
-    case Last
+    case unloaded
+    case first
+    case last
 }
 
 final class TestTransitionManager: CoordinatorManager {
@@ -40,11 +40,11 @@ final class TestTransitionManager: CoordinatorManager {
 
     var initialState: StateType {
         get {
-            return .Unloaded
+            return .unloaded
         }
     }
 
-    func canTransition(#fromState: StateType, toState: StateType) -> Bool {
+    func canTransition(#fromState: StateType, _ toState: StateType) -> Bool {
         switch (fromState, toState) {
         case (_, .Unloaded):
             fallthrough
@@ -57,7 +57,7 @@ final class TestTransitionManager: CoordinatorManager {
         }
     }
 
-    func transition(#fromState: StateType, toState: StateType) {
+    func transition(#fromState: StateType, _ toState: StateType) {
 
     }
 
@@ -68,11 +68,11 @@ class CoordinatorTests: XCTestCase {
     func testTransitions() {
         let c = Coordinator(coordinatorManager: TestTransitionManager())
         XCTAssertFalse(c.canTransitionBack(), "Should not have been able to transition back")
-        XCTAssertTrue(c.canTransitionToState(.First), "Should have been able to transition")
-        c.transitionToState(.First)
+        XCTAssertTrue(c.canTransitionToState(.first), "Should have been able to transition")
+        c.transitionToState(.first)
         XCTAssertTrue(c.canTransitionBack(), "Should have been able to transition back")
-        XCTAssertTrue(c.canTransitionToState(.Last), "Should have been able to transition")
-        c.transitionToState(.Last)
+        XCTAssertTrue(c.canTransitionToState(.last), "Should have been able to transition")
+        c.transitionToState(.last)
         XCTAssertFalse(c.canTransitionBack(), "Should not have been able to transition back")
     }
     

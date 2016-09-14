@@ -25,49 +25,49 @@ THE SOFTWARE.
 import Foundation
 
 private enum CoordinatorTransitionStyle {
-    case Forwards
-    case Last
-    case BackwardsSearch
+    case forwards
+    case last
+    case backwardsSearch
 }
 
-public class CoordinatorReference<StateType: Equatable> {
+open class CoordinatorReference<StateType: Equatable> {
     
-    public private(set) var currentState: StateType
-    private var _previousStates = [StateType]()
+    open fileprivate(set) var currentState: StateType
+    fileprivate var _previousStates = [StateType]()
     
-    public var previousState: StateType? {
+    open var previousState: StateType? {
         return _previousStates.last
     }
     
-    public func previousStates() -> [StateType] {
+    open func previousStates() -> [StateType] {
         return _previousStates
     }
     
-    private init(initialState: StateType) {
+    fileprivate init(initialState: StateType) {
         currentState = initialState
     }
     
-    public func canTransitionToState(newState: StateType) -> Bool {
+    open func canTransitionToState(_ newState: StateType) -> Bool {
         fatalError("implement")
     }
     
-    public func transitionToState(newState: StateType) {
+    open func transitionToState(_ newState: StateType) {
         fatalError("implement")
     }
     
-    public func transitionBackToState(newState: StateType) {
+    open func transitionBackToState(_ newState: StateType) {
         fatalError("implement")
     }
     
-    public func canTransitionBack() -> Bool {
+    open func canTransitionBack() -> Bool {
         fatalError("implement")
     }
     
-    public func transitionBack() {
+    open func transitionBack() {
         fatalError("implement")
     }
     
-    public func unload() {
+    open func unload() {
         fatalError("implement")
     }
     
@@ -75,7 +75,7 @@ public class CoordinatorReference<StateType: Equatable> {
 
 public protocol CoordinatorManager: class {
     
-    typealias StateType: Equatable
+    associatedtype StateType: Equatable
     
     weak var coordinator: CoordinatorReference<StateType>! { get set }
     
@@ -90,7 +90,7 @@ public protocol CoordinatorManager: class {
      
      - returns: true if the state transition is valid; otherwise, false.
      */
-    func canTransition(fromState fromState: StateType, toState: StateType) -> Bool
+    func canTransition(fromState: StateType, toState: StateType) -> Bool
     
     /**
      Perform any logic necessary to transition between the given states.
@@ -98,7 +98,7 @@ public protocol CoordinatorManager: class {
      - parameter fromState: The current to transition from.
      - parameter toState:   The new state to transition to.
      */
-    func transition(fromState fromState: StateType, toState: StateType, forwards: Bool)
+    func transition(fromState: StateType, toState: StateType, forwards: Bool)
     
 }
 
@@ -111,15 +111,15 @@ public protocol CoordinatorImplicitTransitionReversalDelegate: class {
 
 public protocol CoordinatorManagerBackwards: class {
     
-    typealias StateType: Equatable
+    associatedtype StateType: Equatable
     
-    func transition(fromState fromState: StateType, toState: StateType, forwards: Bool)
+    func transition(fromState: StateType, toState: StateType, forwards: Bool)
     
 }
 
-final public class Coordinator<StateType: Equatable, CM: CoordinatorManager where CM.StateType == StateType>: CoordinatorReference<CM.StateType> {
+final public class Coordinator<StateType: Equatable, CM: CoordinatorManager>: CoordinatorReference<CM.StateType> where CM.StateType == StateType {
     
-    private var coordinatorManager: CM!
+    open var coordinatorManager: CM!
     
     /**
      Initialize a Coordinator with the given CoordinatorManager. After being initialized, the CoordinatorManager should not be interacted with directly.
@@ -141,10 +141,10 @@ final public class Coordinator<StateType: Equatable, CM: CoordinatorManager wher
      
      - returns: true if the Coordinator can transition from its current state to the new state; otherwise, false.
      */
-    public override func canTransitionToState(newState: StateType) -> Bool {
+    public override func canTransitionToState(_ newState: StateType) -> Bool {
         if let previousState = _previousStates.last {
             if newState == previousState {
-                if let cm = coordinatorManager as? CoordinatorImplicitTransitionReversalDelegate where cm.allowImplicitTransitionReversals {
+                if let cm = coordinatorManager as? CoordinatorImplicitTransitionReversalDelegate , cm.allowImplicitTransitionReversals {
                     return true
                 }
             }
@@ -158,12 +158,12 @@ final public class Coordinator<StateType: Equatable, CM: CoordinatorManager wher
      
      - parameter newState: The new state to transition to.
      */
-    public override func transitionToState(newState: StateType) {
-        transitionToState(newState, transitionStyle: .Forwards)
+    public override func transitionToState(_ newState: StateType) {
+        transitionToState(newState, transitionStyle: .forwards)
     }
     
-    public override func transitionBackToState(newState: StateType) {
-        transitionToState(newState, transitionStyle: .BackwardsSearch)
+    public override func transitionBackToState(_ newState: StateType) {
+        transitionToState(newState, transitionStyle: .backwardsSearch)
     }
     
     /**
@@ -184,7 +184,7 @@ final public class Coordinator<StateType: Equatable, CM: CoordinatorManager wher
      */
     public override func transitionBack() {
         if let previousState = _previousStates.last {
-            transitionToState(previousState, transitionStyle: .Last)
+            transitionToState(previousState, transitionStyle: .last)
         } else {
             fatalError("Illegal state transition, there is no previous state")
         }
@@ -194,15 +194,15 @@ final public class Coordinator<StateType: Equatable, CM: CoordinatorManager wher
      Clear the state stack of previous states.
      */
     public func clearStateStack() {
-        _previousStates.removeAll(keepCapacity: false)
+        _previousStates.removeAll(keepingCapacity: false)
     }
     
     public override func unload() {
         coordinatorManager = nil
     }
     
-    private func transitionToState(newState: StateType, transitionStyle: CoordinatorTransitionStyle) {
-        if transitionStyle == .BackwardsSearch {
+    fileprivate func transitionToState(_ newState: StateType, transitionStyle: CoordinatorTransitionStyle) {
+        if transitionStyle == .backwardsSearch {
             if !_previousStates.contains(newState) {
                 fatalError("Illegal state transition: There is no previous state \(newState)")
             }
@@ -213,16 +213,16 @@ final public class Coordinator<StateType: Equatable, CM: CoordinatorManager wher
                 let forwards: Bool
                 
                 switch transitionStyle {
-                case .Forwards:
+                case .forwards:
                     forwards = true
                     _previousStates.append(currentState)
-                case .Last:
+                case .last:
                     forwards = false
                     _previousStates.removeLast()
-                case .BackwardsSearch:
+                case .backwardsSearch:
                     forwards = false
                     
-                    for state in _previousStates.reverse() {
+                    for state in _previousStates.reversed() {
                         _previousStates.removeLast()
                         
                         if state == newState {
