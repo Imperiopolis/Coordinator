@@ -77,7 +77,7 @@ public protocol CoordinatorManager: class {
     
     associatedtype StateType: Equatable
     
-    weak var coordinator: CoordinatorReference<StateType>! { get set }
+    var coordinator: CoordinatorReference<StateType>! { get set }
     
     /// The initial state of the CoordinatorManager. The CoordinatorManager should not require any effort to reach this state.
     var initialState: StateType { get }
@@ -117,9 +117,9 @@ public protocol CoordinatorManagerBackwards: class {
     
 }
 
-final public class Coordinator<StateType: Equatable, CM: CoordinatorManager>: CoordinatorReference<CM.StateType> where CM.StateType == StateType {
+final public class Coordinator<StateType, CM: CoordinatorManager>: CoordinatorReference<CM.StateType> where CM.StateType == StateType {
     
-    open var coordinatorManager: CM!
+    public var coordinatorManager: CM!
     
     /**
      Initialize a Coordinator with the given CoordinatorManager. After being initialized, the CoordinatorManager should not be interacted with directly.
